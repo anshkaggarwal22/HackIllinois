@@ -11,15 +11,15 @@ app.use(cors());
 
 // Connect to MongoDB
 mongoose.connect(process.env.MONGO_URI, {})
-  .then(() => console.log('✅ Connected to MongoDB'))
-  .catch((error) => console.error('❌ Error connecting to MongoDB:', error));
+  .then(() => console.log('Connected to MongoDB'))
+  .catch((error) => console.error('Error connecting to MongoDB:', error));
 
 // Import the User model
 const User = require('./models/User');
 
 // **User Registration Route**
 app.post('/register', async (req, res) => {
-  console.log("📩 Received registration request:", req.body);
+  console.log("Received registration request:", req.body);
 
   try {
     const { email, password } = req.body;
@@ -38,14 +38,14 @@ app.post('/register', async (req, res) => {
 
     res.status(201).json({ message: 'User registered successfully' });
   } catch (error) {
-    console.error('❌ Registration error:', error);
+    console.error('Registration error:', error);
     res.status(500).json({ error: 'Failed to register user' });
   }
 });
 
 // **User Login Route**
 app.post('/login', async (req, res) => {
-  console.log("🔑 Login attempt:", req.body);
+  console.log("Login attempt:", req.body);
 
   try {
     const { email, password } = req.body;
@@ -63,7 +63,7 @@ app.post('/login', async (req, res) => {
 
     res.json({ message: 'Login successful', token });
   } catch (error) {
-    console.error('❌ Login error:', error);
+    console.error('Login error:', error);
     res.status(500).json({ error: 'Login failed' });
   }
 });
@@ -90,11 +90,11 @@ app.get('/profile', authMiddleware, async (req, res) => {
 
 // **Server Test Route**
 app.get('/', (req, res) => {
-  res.send('🚀 Server is running!');
+  res.send('Server is running!');
 });
 
 // **Start Server**
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
-  console.log(`✅ Server running on port ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
