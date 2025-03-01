@@ -13,7 +13,7 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-950 text-white relative">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-gray-900 to-gray-950 text-white relative">
       <button
         onClick={() => navigate("/")}
         className="absolute top-4 left-6 bg-transparent text-purple-400 hover:text-purple-600 font-semibold text-4xl"
@@ -33,7 +33,7 @@ const LoginPage = () => {
               required
             />
           </div>
-          <div className="mb-8">
+          <div className="mb-6">
             <input
               type="password"
               placeholder="Password"
@@ -43,10 +43,10 @@ const LoginPage = () => {
               required
             />
           </div>
-          <div className="mt-10 mb-6">
+          <div className="mt-4 mb-6">
             <button
               type="submit"
-              className="w-full bg-purple-600 hover:bg-purple-700 py-4 rounded-lg font-semibold border-2 border-purple-600 hover:border-purple-700"
+              className="w-full bg-purple-600 hover:bg-purple-400 py-3 rounded-lg font-semibold border-2 border-purple-600 hover:border-purple-700"
             >
               Login
             </button>
