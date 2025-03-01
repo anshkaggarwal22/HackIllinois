@@ -6,10 +6,28 @@ const SignupPage = () => {
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
 
-  const handleSignup = (e) => {
+  const handleSignup = async (e) => {
     e.preventDefault();
-    console.log("Signing up with:", email, password);
-    navigate("/"); // Redirect to homepage after signup
+    try {
+      const response = await fetch("http://localhost:3001/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+      });
+  
+      if (!response.ok) {
+        throw new Error("Signup failed");
+      }
+  
+      const data = await response.json();
+      console.log("Signup successful:", data);
+      navigate("/dashboard"); // Redirect to dashboard after signup
+    } catch (error) {
+      console.error("Error during signup:", error);
+      // Optionally, display an error message to the user here
+    }
   };
 
   return (
@@ -61,4 +79,3 @@ const SignupPage = () => {
 };
 
 export default SignupPage;
-
