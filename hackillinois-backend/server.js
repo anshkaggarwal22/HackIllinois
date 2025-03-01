@@ -6,6 +6,7 @@ const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
 const multer = require('multer');
 
+
 const app = express();
 app.use(express.json());
 app.use(cors());
@@ -55,7 +56,7 @@ app.post('/register', async (req, res) => {
 
 // **User Login Route**
 app.post('/login', async (req, res) => {
-  console.log("Login attempt:", req.body);
+  console.log("atempt:", req.body);
 
   try {
     const { email, password } = req.body;
@@ -81,84 +82,61 @@ app.post('/login', async (req, res) => {
 // **JWT Middleware for Protected Routes**
 const authMiddleware = (req, res, next) => {
   const token = req.header('Authorization');
-  if (!token) return res.status(401).json({ error: 'Access denied' });
+  if (!token) {
+    console.log('No token provided'); // Debug log
+    return res.status(401).json({ error: 'Access denied' });
+  }
 
   try {
     const verified = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = verified;
+    req.user = verified; // Ensure this is set correctly
+    console.log('Token verified for user:', verified.userId); // Debug log
     next();
   } catch (error) {
+    console.error('Token verification failed:', error); // Debug log
     res.status(400).json({ error: 'Invalid token' });
   }
 };
 
-// **Get User Profile Route**
+// **Protected Route Example**
 app.get('/profile', authMiddleware, async (req, res) => {
-  try {
-    const user = await User.findById(req.user.userId).select('-password');
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    res.json(user);
-  } catch (error) {
-    res.status(500).json({ error: 'Error fetching profile' });
-  }
+  const user = await User.findById(req.user.userId).select('-password');
+  res.json(user);
 });
 
-// **Update User Profile Route**
+// **Update Profile Route**
 app.put('/profile', authMiddleware, upload.fields([
   { name: 'resume', maxCount: 1 },
   { name: 'transcript', maxCount: 1 }
 ]), async (req, res) => {
   try {
     const userId = req.user.userId;
-    const {
-      firstName,
-      lastName,
-      university,
-      major,
-      race,
-      ethnicity,
-      gender
-    } = req.body;
+    console.log('Updating profile for user:', userId); // Debug log
+    console.log('Received data:', req.body); // Debug log
 
     const updateData = {
-      firstName,
-      lastName,
-      university,
-      major,
-      race,
-      ethnicity,
-      gender
+      firstName: req.body.firstName,
+      lastName: req.body.lastName,
+      university: req.body.university,
+      major: req.body.major,
+      race: req.body.race,
+      ethnicity: req.body.ethnicity,
+      gender: req.body.gender
     };
 
-    // Handle file uploads if present
-    if (req.files) {
-      if (req.files.resume) {
-        updateData.resume = {
-          data: req.files.resume[0].buffer,
-          contentType: req.files.resume[0].mimetype,
-          filename: req.files.resume[0].originalname
-        };
-      }
-      if (req.files.transcript) {
-        updateData.transcript = {
-          data: req.files.transcript[0].buffer,
-          contentType: req.files.transcript[0].mimetype,
-          filename: req.files.transcript[0].originalname
-        };
-      }
-    }
-
+    // Update user in database
     const user = await User.findByIdAndUpdate(
       userId,
       { $set: updateData },
-      { new: true, select: '-password' }
-    );
+      { new: true }
+    ).select('-password');
 
     if (!user) {
+      console.log('User not found in database:', userId); // Debug log
       return res.status(404).json({ message: 'User not found' });
     }
+
+    console.log('Profile updated successfully:', user); // Debug log
 
     res.json({
       message: 'Profile updated successfully',
@@ -171,9 +149,7 @@ app.put('/profile', authMiddleware, upload.fields([
         major: user.major,
         race: user.race,
         ethnicity: user.ethnicity,
-        gender: user.gender,
-        hasResume: !!user.resume,
-        hasTranscript: !!user.transcript
+        gender: user.gender
       }
     });
 

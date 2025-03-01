@@ -5,16 +5,14 @@ const Profile = () => {
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
+    state: "",
     university: "",
     major: "",
+    gpa: "",
+    religion: "",
+    hobbies: "",
     race: "",
-    ethnicity: "",
     gender: ""
-  });
-
-  const [files, setFiles] = useState({
-    resume: null,
-    transcript: null
   });
 
   const [status, setStatus] = useState({
@@ -39,35 +37,18 @@ const Profile = () => {
     });
   };
 
-  const handleFileChange = (e) => {
-    setFiles({
-      ...files,
-      [e.target.name]: e.target.files[0]
-    });
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setStatus({ loading: true, error: null, success: false });
 
     try {
-      const formDataToSend = new FormData();
-      
-      // Append text data
-      Object.keys(formData).forEach(key => {
-        formDataToSend.append(key, formData[key]);
-      });
-
-      // Append files if they exist
-      if (files.resume) formDataToSend.append('resume', files.resume);
-      if (files.transcript) formDataToSend.append('transcript', files.transcript);
-
-      const response = await fetch('http://localhost:5000/api/users/profile', {
+      const response = await fetch('http://localhost:3001/profile', {
         method: 'PUT',
         headers: {
-          'x-auth-token': localStorage.getItem('token')
+          'Content-Type': 'application/json',
+          'Authorization': localStorage.getItem('token')
         },
-        body: formDataToSend
+        body: JSON.stringify(formData)
       });
 
       const data = await response.json();
@@ -133,7 +114,7 @@ const Profile = () => {
 
         <div className="bg-gray-800 rounded-lg p-6">
           <h2 className="text-2xl font-bold text-white mb-6">Personal Information</h2>
-          <form onSubmit={handleSubmit} className="bg-gray-800 rounded-lg p-6">
+          <form onSubmit={handleSubmit}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <input
                 type="text"
@@ -153,6 +134,14 @@ const Profile = () => {
               />
               <input
                 type="text"
+                name="state"
+                placeholder="State"
+                value={formData.state}
+                onChange={handleChange}
+                className="p-3 bg-gray-700 text-white rounded-lg border-2 border-gray-600 focus:outline-none focus:border-purple-600"
+              />
+              <input
+                type="text"
                 name="university"
                 placeholder="University"
                 value={formData.university}
@@ -164,6 +153,30 @@ const Profile = () => {
                 name="major"
                 placeholder="Major"
                 value={formData.major}
+                onChange={handleChange}
+                className="p-3 bg-gray-700 text-white rounded-lg border-2 border-gray-600 focus:outline-none focus:border-purple-600"
+              />
+              <input
+                type="text"
+                name="gpa"
+                placeholder="GPA"
+                value={formData.gpa}
+                onChange={handleChange}
+                className="p-3 bg-gray-700 text-white rounded-lg border-2 border-gray-600 focus:outline-none focus:border-purple-600"
+              />
+              <input
+                type="text"
+                name="religion"
+                placeholder="Religion"
+                value={formData.religion}
+                onChange={handleChange}
+                className="p-3 bg-gray-700 text-white rounded-lg border-2 border-gray-600 focus:outline-none focus:border-purple-600"
+              />
+              <input
+                type="text"
+                name="hobbies"
+                placeholder="Hobbies (comma separated)"
+                value={formData.hobbies}
                 onChange={handleChange}
                 className="p-3 bg-gray-700 text-white rounded-lg border-2 border-gray-600 focus:outline-none focus:border-purple-600"
               />
@@ -192,30 +205,6 @@ const Profile = () => {
                 <option value="other">Other</option>
                 <option value="prefer-not">Prefer not to say</option>
               </select>
-            </div>
-
-            <div className="mt-8 space-y-6">
-              <h3 className="text-xl font-bold text-white mb-4">Documents</h3>
-              <div>
-                <label className="block text-white mb-2">Resume (PDF)</label>
-                <input
-                  type="file"
-                  name="resume"
-                  accept=".pdf"
-                  onChange={handleFileChange}
-                  className="block w-full text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-purple-600 file:text-white hover:file:bg-purple-700"
-                />
-              </div>
-              <div>
-                <label className="block text-white mb-2">Transcript (PDF)</label>
-                <input
-                  type="file"
-                  name="transcript"
-                  accept=".pdf"
-                  onChange={handleFileChange}
-                  className="block w-full text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-purple-600 file:text-white hover:file:bg-purple-700"
-                />
-              </div>
             </div>
 
             <button

@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 
-const Navbar = ({ userName = "User" }) => {
+const Navbar = () => {
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -35,7 +35,6 @@ const Navbar = ({ userName = "User" }) => {
         </div>
         
         <div className="flex items-center space-x-4">
-          <span className="text-gray-300">Welcome, {userName}</span>
           <button
             onClick={handleLogout}
             className="bg-purple-600 px-4 py-2 rounded-lg hover:bg-purple-700"
