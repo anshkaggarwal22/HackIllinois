@@ -1,5 +1,4 @@
 import { Link } from 'react-router-dom';
-import Button from './Button';
 
 const Navbar = () => {
   return (
@@ -10,22 +9,34 @@ const Navbar = () => {
       
       <div className="navbar-center hidden lg:flex">
         <ul className="menu menu-horizontal space-x-8 px-1">
-          <li><Link to="/scholarships" className="text-gray-300 hover:text-purple-400 px-2 py-1">Scholarships</Link></li>
-          <li><Link to="/how-it-works" className="text-gray-300 hover:text-purple-400 px-2 py-1">How It Works</Link></li>
-          <li><Link to="/about" className="text-gray-300 hover:text-purple-400 px-2 py-1">About</Link></li>
+          <li>
+            <Link to="/scholarships" className="text-gray-300 hover:text-purple-400 px-2 py-1">
+              Scholarships
+            </Link>
+          </li>
+          <li>
+            <Link to="/how-it-works" className="text-gray-300 hover:text-purple-400 px-2 py-1">
+              How It Works
+            </Link>
+          </li>
+          <li>
+            <Link to="/about" className="text-gray-300 hover:text-purple-400 px-2 py-1">
+              About
+            </Link>
+          </li>
         </ul>
       </div>
       
       <div className="navbar-end gap-4">
-        <Link to="/login">
-          <Button variant="ghost" size="medium">Login</Button>
+        <Link to="/login" className="btn btn-ghost">
+          Login
         </Link>
-        <Link to="/signup">
-          <Button variant="primary" size="medium">Sign Up</Button>
+        <Link to="/signup" className="btn btn-primary">
+          Sign Up
         </Link>
       </div>
     </div>
   );
 };
 
-export default Navbar; 
+export default Navbar;
