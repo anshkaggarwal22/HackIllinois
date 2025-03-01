@@ -16,11 +16,13 @@ const LandingPage = () => {
       {/* Navbar */}
       <nav className="fixed top-0 w-full bg-gray-900/80 backdrop-blur-sm z-50 py-4">
         <div className="max-w-7xl mx-auto px-8">
-          <div className="flex justify-between items-center">
-            <Link to="/" className="text-2xl font-bold">
-              Scholar
-            </Link>
-            <div className="flex gap-16">
+          <div className="flex items-center">
+            <div className="w-1/4">
+              <Link to="/" className="text-2xl font-bold">
+                Scholar
+              </Link>
+            </div>
+            <div className="flex justify-center gap-16 w-1/2">
               <button 
                 onClick={() => scrollToSection(aboutRef)}
                 className="text-gray-300 hover:text-white transition-colors"
@@ -40,7 +42,7 @@ const LandingPage = () => {
                 Featured Scholarships
               </button>
             </div>
-            <div className="flex gap-4">
+            <div className="flex justify-end gap-4 w-1/4">
               <Link 
                 to="/login" 
                 className="btn btn-outline px-6"
