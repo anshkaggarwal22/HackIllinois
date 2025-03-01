@@ -35,12 +35,12 @@ const LoginPage = () => {
           />
           <button
             type="submit"
-            className="w-full bg-purple-600 hover:bg-purple-700 p-3 rounded-lg font-semibold"
+            className="w-full bg-purple-600 hover:bg-purple-700 p-3 rounded-lg font-semibold px-8"
           >
             Login
           </button>
         </form>
-        <p className="text-gray-400 text-center mt-4">
+        <p className="text-gray-400 text-center mt-4 px-8">
           Don't have an account? <a href="/signup" className="text-purple-400 hover:underline">Sign up</a>
         </p>
       </div>
