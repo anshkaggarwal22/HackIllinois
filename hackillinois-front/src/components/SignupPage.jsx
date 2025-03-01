@@ -23,7 +23,7 @@ const SignupPage = () => {
   
       const data = await response.json();
       console.log("Signup successful:", data);
-      navigate("/dashboard"); // Redirect to dashboard after signup
+      navigate("/profile"); // Redirect to profile after signup 
     } catch (error) {
       console.error("Error during signup:", error);
       // Optionally, display an error message to the user here
