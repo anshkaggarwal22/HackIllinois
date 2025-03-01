@@ -85,7 +85,7 @@ const LandingPage = () => {
             to="/signup" 
             className="btn btn-primary mt-4 text-xl font-semibold shadow-xl px-8"
           >
-            Get Started
+            Make Money Now
           </Link>
         </div>
       </div>
