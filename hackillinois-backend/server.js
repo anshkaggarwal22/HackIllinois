@@ -14,11 +14,11 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// Configure multer for file uploads (if needed)
+// Configure multer for file uploads if needed
 const storage = multer.memoryStorage();
 const upload = multer({
   storage: storage,
-  limits: { fileSize: 5 * 1024 * 1024 }
+  limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
 });
 
 // Connect to MongoDB
@@ -34,6 +34,7 @@ app.post('/register', async (req, res) => {
   console.log("Registration request:", req.body);
   try {
     const { email, password } = req.body;
+    // Check if user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) return res.status(400).json({ error: 'Email already in use' });
     
@@ -42,7 +43,7 @@ app.post('/register', async (req, res) => {
     const newUser = new User({ email, password: hashedPassword });
     await newUser.save();
     
-    // Immediately generate a token for the new user
+    // Generate token immediately after registration
     const token = jwt.sign({ userId: newUser._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
     res.status(201).json({ message: 'User registered successfully', token });
   } catch (error) {
@@ -123,7 +124,7 @@ app.put('/profile', authMiddleware, async (req, res) => {
       race,
       gender
     } = req.body;
-
+    
     const updateData = {};
     if (firstName !== undefined) updateData.firstName = firstName;
     if (lastName !== undefined) updateData.lastName = lastName;
@@ -156,21 +157,23 @@ app.put('/profile', authMiddleware, async (req, res) => {
 
 /* ================================
    SCHOLARSHIP ENDPOINT
-   (Uses the saved profile fields to query ChatGPT)
+   Uses the saved profile fields to query ChatGPT
 ================================ */
 app.get('/api/scholarships', authMiddleware, async (req, res) => {
   try {
     const user = await User.findById(req.user.userId);
     if (!user) return res.status(404).json({ error: 'User not found' });
-
+    
+    // Check if required profile fields are present.
     if (!user.race || !user.gender || !user.university) {
-      return res.status(400).json({
-        error: 'Please update your profile with race, gender, and university first.'
+      return res.json({
+        incompleteProfile: true,
+        message: 'Please update your profile with race, gender, and university first.'
       });
     }
-
+    
     const data = await getScholarships(user.university, user.race, user.gender);
-    res.json(data); // { scholarships: [...] }
+    res.json(data); // Returns { scholarships: [...] }
   } catch (error) {
     console.error('Failed to fetch scholarship data:', error);
     res.status(500).json({ error: 'Failed to fetch scholarship data.' });

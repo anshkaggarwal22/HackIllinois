@@ -7,8 +7,8 @@ const Dashboard = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [incompleteProfile, setIncompleteProfile] = useState(false);
 
-  // Retrieve the JWT token from localStorage
   const token = localStorage.getItem("token");
 
   useEffect(() => {
@@ -23,7 +23,10 @@ const Dashboard = () => {
           headers: { Authorization: token }
         });
         const data = await res.json();
-        if (res.ok) {
+        if (data.incompleteProfile) {
+          setIncompleteProfile(true);
+          setError(data.message);
+        } else if (res.ok) {
           setScholarships(data.scholarships || []);
         } else {
           setError(data.error || "Failed to fetch scholarships");
@@ -54,7 +57,7 @@ const Dashboard = () => {
     );
   }
 
-  // Filter scholarships by title based on searchTerm
+  // Filter scholarships by title
   const filteredScholarships = scholarships.filter((sch) =>
     sch.title.toLowerCase().includes(searchTerm.toLowerCase())
   );

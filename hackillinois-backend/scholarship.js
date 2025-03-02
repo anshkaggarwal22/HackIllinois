@@ -2,6 +2,7 @@
 import dotenv from 'dotenv';
 dotenv.config();
 import { OpenAI } from 'openai';
+import puppeteer from 'puppeteer';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -47,10 +48,16 @@ Output the result as JSON in a code block (using triple backticks and starting w
     });
     
     const rawText = response.choices[0].message.content;
-    const data = extractJSON(rawText);
+    let data = extractJSON(rawText);
     
     if (Array.isArray(data.scholarships)) {
-      // Sort by due_date (earliest first)
+      // For each scholarship, try to update the apply_link using web scraping (in parallel)
+      await Promise.all(
+        data.scholarships.map(async (scholarship) => {
+          scholarship.apply_link = await updateApplyLink(scholarship);
+        })
+      );
+      // Sort the scholarships from earliest to latest based on due_date
       data.scholarships.sort((a, b) => new Date(a.due_date) - new Date(b.due_date));
     }
     
@@ -62,7 +69,7 @@ Output the result as JSON in a code block (using triple backticks and starting w
 }
 
 /**
- * Extract JSON from a code block in the provided text.
+ * Extracts and parses JSON from a code block in the provided text.
  * @param {string} text - The text containing a JSON code block.
  * @returns {Object} - The parsed JSON object.
  */
@@ -78,3 +85,54 @@ function extractJSON(text) {
   }
   throw new Error("No valid JSON found in GPT response.");
 }
+
+/**
+ * Uses Puppeteer to scrape a direct "Apply" link from the provided page URL.
+ * @param {string} pageUrl - The URL of the scholarship page.
+ * @returns {Promise<string>} - The scraped direct link or "N/A" if none is found.
+ */
+async function getDirectApplyLink(pageUrl) {
+  if (!pageUrl || pageUrl === 'N/A') return 'N/A';
+
+  let browser;
+  try {
+    browser = await puppeteer.launch();
+    const page = await browser.newPage();
+    await page.goto(pageUrl, { waitUntil: 'networkidle2' });
+    
+    const link = await page.evaluate(() => {
+      const elements = Array.from(document.querySelectorAll('a, button'));
+      const candidate = elements.find(el => {
+        const text = el.innerText ? el.innerText.toLowerCase() : '';
+        return text.includes('apply');
+      });
+      if (candidate) {
+        if (candidate.tagName.toLowerCase() === 'a' && candidate.href) {
+          return candidate.href;
+        } else if (candidate.tagName.toLowerCase() === 'button') {
+          return candidate.getAttribute('data-link') || '';
+        }
+      }
+      return null;
+    });
+    return link || 'N/A';
+  } catch (error) {
+    console.error(`Error scraping ${pageUrl}: ${error.message}`);
+    return 'N/A';
+  } finally {
+    if (browser) await browser.close();
+  }
+}
+
+/**
+ * Attempts to update the scholarship's apply_link using web scraping.
+ * If scraping yields a valid result, returns that; otherwise, returns the original link.
+ * @param {Object} scholarship - The scholarship object.
+ * @returns {Promise<string>} - The updated apply link.
+ */
+async function updateApplyLink(scholarship) {
+  if (!scholarship.apply_link || scholarship.apply_link === 'N/A') return 'N/A';
+  const scrapedLink = await getDirectApplyLink(scholarship.apply_link);
+  return scrapedLink && scrapedLink !== 'N/A' ? scrapedLink : scholarship.apply_link;
+}
+
