@@ -1,77 +1,70 @@
-require('dotenv').config();
-const express = require('express');
-const bcrypt = require('bcrypt');
-const cors = require('cors');
-const mongoose = require('mongoose');
-const jwt = require('jsonwebtoken');
-const multer = require('multer');
-
+// server.js
+import dotenv from 'dotenv';
+dotenv.config();
+import express from 'express';
+import bcrypt from 'bcrypt';
+import cors from 'cors';
+import mongoose from 'mongoose';
+import jwt from 'jsonwebtoken';
+import multer from 'multer';
+import User from './models/User.js';
+import SavedScholarship from './models/SavedScholarship.js';
+import { getScholarships } from './scholarship.js';
 
 const app = express();
 app.use(express.json());
 app.use(cors());
 
-// Configure multer for file uploads
+// Configure multer for file uploads if needed
 const storage = multer.memoryStorage();
-const upload = multer({ 
+const upload = multer({
   storage: storage,
-  limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB limit
-  }
+  limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
 });
 
 // Connect to MongoDB
-mongoose.connect(process.env.MONGO_URI, {})
+mongoose
+  .connect(process.env.MONGO_URI, {})
   .then(() => console.log('Connected to MongoDB'))
   .catch((error) => console.error('Error connecting to MongoDB:', error));
 
-// Import the User model
-const User = require('./models/User');
-
-// **User Registration Route**
+/* ================================
+   USER REGISTRATION
+================================ */
 app.post('/register', async (req, res) => {
-  console.log("Received registration request:", req.body);
-
+  console.log("Registration request:", req.body);
   try {
     const { email, password } = req.body;
-
-    // Check if user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) return res.status(400).json({ error: 'Email already in use' });
-
-    // Hash the password
+    
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(password, saltRounds);
-
-    // Save user in MongoDB
     const newUser = new User({ email, password: hashedPassword });
     await newUser.save();
-
-    res.status(201).json({ message: 'User registered successfully' });
+    
+    const token = jwt.sign({ userId: newUser._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    res.status(201).json({ message: 'User registered successfully', token });
   } catch (error) {
     console.error('Registration error:', error);
     res.status(500).json({ error: 'Failed to register user' });
   }
 });
 
-// **User Login Route**
+/* ================================
+   USER LOGIN
+================================ */
 app.post('/login', async (req, res) => {
-  console.log("atempt:", req.body);
-
+  console.log("Login request:", req.body);
   try {
     const { email, password } = req.body;
-
-    // Find user by email
     const user = await User.findOne({ email });
     if (!user) return res.status(400).json({ error: 'Invalid email or password' });
-
-    // Compare entered password with hashed password
+    
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ error: 'Invalid email or password' });
-
-    // Generate JWT token
+    
     const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
-
     res.json({ message: 'Login successful', token });
   } catch (error) {
     console.error('Login error:', error);
@@ -79,99 +72,195 @@ app.post('/login', async (req, res) => {
   }
 });
 
-// **JWT Middleware for Protected Routes**
+/* ================================
+   AUTH MIDDLEWARE
+================================ */
 const authMiddleware = (req, res, next) => {
   const token = req.header('Authorization');
   if (!token) {
-    console.log('No token provided'); // Debug log
-    return res.status(401).json({ error: 'Access denied' });
+    return res.status(401).json({ error: 'Access denied, no token provided' });
   }
-
   try {
     const verified = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = verified; // Ensure this is set correctly
-    console.log('Token verified for user:', verified.userId); // Debug log
+    req.user = verified;
     next();
   } catch (error) {
-    console.error('Token verification failed:', error); // Debug log
+    console.error('Token verification failed:', error);
     res.status(400).json({ error: 'Invalid token' });
   }
 };
 
-// **Protected Route Example**
+/* ================================
+   GET USER PROFILE
+================================ */
 app.get('/profile', authMiddleware, async (req, res) => {
-  const user = await User.findById(req.user.userId).select('-password');
-  res.json(user);
+  try {
+    const user = await User.findById(req.user.userId).select('-password');
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json(user);
+  } catch (error) {
+    console.error('Profile fetch error:', error);
+    res.status(500).json({ error: 'Failed to fetch profile' });
+  }
 });
 
-// **Update Profile Route**
+/* ================================
+   UPDATE USER PROFILE
+================================ */
 app.put('/profile', authMiddleware, async (req, res) => {
   try {
     const userId = req.user.userId;
-    console.log('Updating profile for user:', userId);
-    console.log('Received data:', req.body);
-
-    const updateData = {
-      firstName: req.body.firstName,
-      lastName: req.body.lastName,
-      state: req.body.state,
-      university: req.body.university,
-      major: req.body.major,
-      gpa: req.body.gpa,
-      religion: req.body.religion,
-      hobbies: req.body.hobbies,
-      race: req.body.race,
-      gender: req.body.gender
-    };
+    console.log("Profile update request body:", req.body);
+    const {
+      firstName,
+      lastName,
+      state,
+      university,
+      major,
+      gpa,
+      religion,
+      hobbies,
+      race,
+      gender
+    } = req.body;
     
-    console.log('Update data being sent to MongoDB:', updateData);
-
-    // Force upsert to ensure all fields are created if they don't exist
+    const updateData = {};
+    if (firstName !== undefined) updateData.firstName = firstName;
+    if (lastName !== undefined) updateData.lastName = lastName;
+    if (state !== undefined) updateData.state = state;
+    if (university !== undefined) updateData.university = university;
+    if (major !== undefined) updateData.major = major;
+    if (gpa !== undefined) updateData.gpa = gpa;
+    if (religion !== undefined) updateData.religion = religion;
+    if (hobbies !== undefined) updateData.hobbies = hobbies;
+    if (race !== undefined) updateData.race = race;
+    if (gender !== undefined) updateData.gender = gender;
+    
+    console.log("Update data:", updateData);
+    
     const user = await User.findByIdAndUpdate(
       userId,
       { $set: updateData },
       { new: true }
     ).select('-password');
-
+    
     if (!user) {
-      console.log('User not found in database:', userId);
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ error: 'User not found' });
     }
-
-    console.log('Profile updated successfully:', user);
-    console.log('Fields in updated user object:', Object.keys(user.toObject()));
-
-    // Return all fields explicitly
-    res.json({
-      message: 'Profile updated successfully',
-      user: {
-        id: user._id,
-        email: user.email,
-        firstName: user.firstName || '',
-        lastName: user.lastName || '',
-        state: user.state || '',
-        university: user.university || '',
-        major: user.major || '',
-        gpa: user.gpa || '',
-        religion: user.religion || '',
-        hobbies: user.hobbies || '',
-        race: user.race || '',
-        gender: user.gender || ''
-      }
-    });
-
+    res.json({ message: 'Profile updated successfully', user });
   } catch (error) {
     console.error('Profile update error:', error);
-    res.status(500).json({ message: 'Error updating profile' });
+    res.status(500).json({ error: 'Error updating profile' });
   }
 });
 
-// **Server Test Route**
+/* ================================
+   SCHOLARSHIP ENDPOINT
+   Uses the saved profile fields to query ChatGPT
+================================ */
+app.get('/api/scholarships', authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    
+    if (!user.race || !user.gender || !user.university) {
+      return res.json({
+        incompleteProfile: true,
+        message: 'Please update your profile with race, gender, and university first.'
+      });
+    }
+    
+    const data = await getScholarships(user.university, user.race, user.gender);
+    res.json(data);
+  } catch (error) {
+    console.error('Failed to fetch scholarship data:', error);
+    res.status(500).json({ error: 'Failed to fetch scholarship data.' });
+  }
+});
+
+/* ================================
+   SAVED SCHOLARSHIPS ENDPOINTS
+================================ */
+// Save a scholarship for the logged-in user
+app.post('/api/savedScholarships', authMiddleware, async (req, res) => {
+  try {
+    const { title, award_amount, due_date, university, apply_link } = req.body;
+    const userId = req.user.userId;
+    
+    const existing = await SavedScholarship.findOne({ userId, apply_link, title });
+    if (existing) {
+      return res.status(400).json({ error: 'Scholarship already saved' });
+    }
+    
+    const newSaved = new SavedScholarship({ userId, title, award_amount, due_date, university, apply_link });
+    await newSaved.save();
+    
+    res.status(201).json({ message: 'Scholarship saved', savedScholarship: newSaved });
+  } catch (error) {
+    console.error('Error saving scholarship:', error);
+    res.status(500).json({ error: 'Failed to save scholarship' });
+  }
+});
+
+// Get all saved scholarships for the logged-in user
+app.get('/api/savedScholarships', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const saved = await SavedScholarship.find({ userId });
+    res.json({ savedScholarships: saved });
+  } catch (error) {
+    console.error('Error fetching saved scholarships:', error);
+    res.status(500).json({ error: 'Failed to fetch saved scholarships' });
+  }
+});
+
+// Update a saved scholarship (toggle isSuccessful)
+app.put('/api/savedScholarships/:id', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { isSuccessful } = req.body;
+    const userId = req.user.userId;
+    const updated = await SavedScholarship.findOneAndUpdate(
+      { _id: id, userId },
+      { $set: { isSuccessful } },
+      { new: true }
+    );
+    if (!updated) {
+      return res.status(404).json({ error: 'Scholarship not found' });
+    }
+    res.json({ message: 'Scholarship updated', savedScholarship: updated });
+  } catch (error) {
+    console.error('Error updating scholarship:', error);
+    res.status(500).json({ error: 'Failed to update scholarship' });
+  }
+});
+
+// Delete a saved scholarship
+app.delete('/api/savedScholarships/:id', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.userId;
+    const deleted = await SavedScholarship.findOneAndDelete({ _id: id, userId });
+    if (!deleted) {
+      return res.status(404).json({ error: 'Scholarship not found' });
+    }
+    res.json({ message: 'Scholarship deleted' });
+  } catch (error) {
+    console.error('Error deleting scholarship:', error);
+    res.status(500).json({ error: 'Failed to delete scholarship' });
+  }
+});
+
+/* ================================
+   TEST ROUTE
+================================ */
 app.get('/', (req, res) => {
   res.send('Server is running!');
 });
 
-// **Start Server**
+/* ================================
+   START THE SERVER
+================================ */
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

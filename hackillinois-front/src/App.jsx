@@ -1,10 +1,12 @@
+// App.jsx
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import LandingPage from "./components/LandingPage.jsx";
 import LoginPage from "./components/LoginPage";
 import SignupPage from "./components/SignupPage.jsx";
 import Dashboard from "./components/Dashboard";
 import Profile from "./components/Profile";
-import ProtectedRoute from "./components/ProtectedRoute"; // Import the Protected Route
+import Tracker from "./components/Tracker"; // New Tracker import
+import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
   return (
@@ -14,13 +16,13 @@ function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
 
-        {/* 🔐 Protect dashboard and profile routes */}
+        {/* 🔐 Protected routes */}
         <Route element={<ProtectedRoute />}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/tracker" element={<Tracker />} />
         </Route>
 
-        {/* Redirect unknown routes */}
         <Route path="*" element={<LandingPage />} />
       </Routes>
     </Router>
