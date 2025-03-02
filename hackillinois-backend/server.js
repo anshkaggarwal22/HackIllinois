@@ -105,51 +105,58 @@ app.get('/profile', authMiddleware, async (req, res) => {
 });
 
 // **Update Profile Route**
-app.put('/profile', authMiddleware, upload.fields([
-  { name: 'resume', maxCount: 1 },
-  { name: 'transcript', maxCount: 1 }
-]), async (req, res) => {
+app.put('/profile', authMiddleware, async (req, res) => {
   try {
     const userId = req.user.userId;
-    console.log('Updating profile for user:', userId); // Debug log
-    console.log('Received data:', req.body); // Debug log
+    console.log('Updating profile for user:', userId);
+    console.log('Received data:', req.body);
 
     const updateData = {
       firstName: req.body.firstName,
       lastName: req.body.lastName,
+      state: req.body.state,
       university: req.body.university,
       major: req.body.major,
+      gpa: req.body.gpa,
+      religion: req.body.religion,
+      hobbies: req.body.hobbies,
       race: req.body.race,
-      ethnicity: req.body.ethnicity,
       gender: req.body.gender
     };
+    
+    console.log('Update data being sent to MongoDB:', updateData);
 
-    // Update user in database
+    // Force upsert to ensure all fields are created if they don't exist
     const user = await User.findByIdAndUpdate(
       userId,
       { $set: updateData },
-      { new: true }
+      { new: true, upsert: true }
     ).select('-password');
 
     if (!user) {
-      console.log('User not found in database:', userId); // Debug log
+      console.log('User not found in database:', userId);
       return res.status(404).json({ message: 'User not found' });
     }
 
-    console.log('Profile updated successfully:', user); // Debug log
+    console.log('Profile updated successfully:', user);
+    console.log('Fields in updated user object:', Object.keys(user.toObject()));
 
+    // Return all fields explicitly
     res.json({
       message: 'Profile updated successfully',
       user: {
         id: user._id,
         email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        university: user.university,
-        major: user.major,
-        race: user.race,
-        ethnicity: user.ethnicity,
-        gender: user.gender
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
+        state: user.state || '',
+        university: user.university || '',
+        major: user.major || '',
+        gpa: user.gpa || '',
+        religion: user.religion || '',
+        hobbies: user.hobbies || '',
+        race: user.race || '',
+        gender: user.gender || ''
       }
     });
 

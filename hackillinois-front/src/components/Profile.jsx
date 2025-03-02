@@ -41,6 +41,8 @@ const Profile = () => {
     e.preventDefault();
     setStatus({ loading: true, error: null, success: false });
 
+    console.log('Submitting form data:', formData); // Log form data
+
     try {
       const response = await fetch('http://localhost:3001/profile', {
         method: 'PUT',
