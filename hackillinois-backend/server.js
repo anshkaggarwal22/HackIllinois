@@ -130,7 +130,7 @@ app.put('/profile', authMiddleware, async (req, res) => {
     const user = await User.findByIdAndUpdate(
       userId,
       { $set: updateData },
-      { new: true, upsert: true }
+      { new: true }
     ).select('-password');
 
     if (!user) {
