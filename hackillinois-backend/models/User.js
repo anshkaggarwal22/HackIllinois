@@ -1,5 +1,6 @@
-const mongoose = require('mongoose');
-const bcrypt = require('bcrypt');
+// User.js
+import mongoose from 'mongoose';
+import bcrypt from 'bcrypt';
 
 const userSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
@@ -20,4 +21,9 @@ const userSchema = new mongoose.Schema({
   }
 });
 
-module.exports = mongoose.model('User', userSchema);
+// Create the model
+const User = mongoose.model('User', userSchema);
+
+// Export as the default export (and remove any extra exports)
+export default User;
+
