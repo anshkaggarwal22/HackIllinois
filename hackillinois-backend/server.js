@@ -141,10 +141,54 @@ app.get('/', (req, res) => {
 // Import the scholarship search function
 import { getScholarships } from './scholarship.js';
 
-// Scholarship Endpoint: returns scholarships
-app.get('/api/scholarships', async (req, res) => {
+// Scholarship Endpoint: returns personalized scholarships based on user profile
+app.get('/api/scholarships', authMiddleware, async (req, res) => {
   try {
-    console.log('Fetching scholarships data...');
+    console.log('Fetching user profile for personalized scholarships...');
+    const userId = req.user.userId;
+    
+    // Fetch the user's profile from MongoDB
+    const user = await User.findById(userId).select('-password');
+    if (!user) {
+      console.error('User not found for personalized scholarships');
+      return res.status(404).json({
+        error: 'User not found',
+        overlapping: []
+      });
+    }
+    
+    console.log('Fetching personalized scholarships for user:', user.email);
+    const data = await getScholarships(user);
+    
+    if (!data || !data.overlapping) {
+      console.error('Invalid scholarship data returned:', data);
+      return res.status(500).json({ 
+        error: 'Invalid scholarship data structure', 
+        overlapping: [] 
+      });
+    }
+    
+    // Take the top 3 overlapping scholarships or all if less than 3
+    const overlapping = Array.isArray(data.overlapping) 
+      ? data.overlapping.slice(0, Math.min(data.overlapping.length, 3)) 
+      : [];
+    
+    console.log(`Returning ${overlapping.length} personalized scholarships for ${user.email}`);
+    res.json({ overlapping });
+  } catch (error) {
+    console.error('Failed to fetch personalized scholarships:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch scholarship data.', 
+      message: error.message,
+      overlapping: [] 
+    });
+  }
+});
+
+// Non-authenticated fallback scholarship endpoint (for users who aren't logged in)
+app.get('/api/default-scholarships', async (req, res) => {
+  try {
+    console.log('Fetching default scholarships (no user profile)');
     const data = await getScholarships();
     
     if (!data || !data.overlapping) {
@@ -160,10 +204,10 @@ app.get('/api/scholarships', async (req, res) => {
       ? data.overlapping.slice(0, Math.min(data.overlapping.length, 3)) 
       : [];
     
-    console.log(`Returning ${overlapping.length} scholarships`);
+    console.log(`Returning ${overlapping.length} default scholarships`);
     res.json({ overlapping });
   } catch (error) {
-    console.error('Failed to fetch scholarship data:', error);
+    console.error('Failed to fetch default scholarship data:', error);
     res.status(500).json({ 
       error: 'Failed to fetch scholarship data.', 
       message: error.message,

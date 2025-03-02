@@ -8,7 +8,34 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-const prompt = `
+// Function to generate a prompt based on user profile
+function generatePrompt(user) {
+  // Default values for missing user data
+  const race = user?.race || 'Not specified';
+  const gender = user?.gender || 'Not specified';
+  const state = user?.state || 'Not specified';
+  const major = user?.major || 'Not specified';
+  const religion = user?.religion || 'Not specified';
+  const hobbies = user?.hobbies || 'Not specified';
+  const gpa = user?.gpa || 'Not specified';
+  const university = user?.university || 'Not specified';
+
+  return `
+I'm building a website to find scholarship opportunities for college students with deadlines in 2025.
+For a user who is ${race}, ${gender}, from ${state}, a ${major} major, ${religion}, with a GPA of ${gpa}, attending ${university}, and enjoys ${hobbies} for fun,
+find me 5 primary scholarship opportunities. For each, provide the scholarship number, title, due date, award amount, eligibility,
+a URL of the scholarship page (which may not be the direct application link), GPA requirement, and the associated university.
+Order the primary scholarships by scholarship number in ascending order.
+Additionally, create another section for scholarships that apply to overlapping categories (e.g., multiple eligibility criteria).
+Output the result as JSON in a code block (using triple backticks and starting with 'json') with two keys: 'primary' and 'overlapping'.
+Each should be an array of objects with the following keys: 'number', 'title', 'due_date', 'award_amount', 'eligibility',
+'apply_link', 'gpa', and 'university'.
+If an exact direct link is not known, use the general scholarship page URL.
+`;
+}
+
+// Default prompt for when no user data is available
+const defaultPrompt = `
 I'm building a website to find scholarship opportunities for college students with deadlines in 2025.
 For a sample user who is black, female, from California, a computer science major, muslim, and plays chess for fun,
 find me 5 primary scholarship opportunities. For each, provide the scholarship number, title, due date, award amount, eligibility,
@@ -116,14 +143,19 @@ const fallbackScholarships = {
   ]
 };
 
-export async function getScholarships() {
+export async function getScholarships(user = null) {
   try {
+    // Use the user's profile data to generate a personalized prompt if available
+    const prompt = user ? generatePrompt(user) : defaultPrompt;
+    console.log('Using prompt based on user profile:', user ? 'Yes' : 'No');
+    
     const response = await openai.chat.completions.create({
       model: 'gpt-3.5-turbo',
       messages: [{ role: 'user', content: prompt }],
       max_tokens: 2000,
       temperature: 0.7,
     });
+    
     const resultText = response.choices[0].message.content;
     const jsonString = extractJSON(resultText);
     let data;
