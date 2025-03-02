@@ -26,9 +26,9 @@ const Profile = () => {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem("token");
         if (!token) return;
-        const res = await fetch('http://localhost:3001/profile', {
+        const res = await fetch("http://localhost:3001/profile", {
           headers: { Authorization: token }
         });
         const data = await res.json();
@@ -49,7 +49,7 @@ const Profile = () => {
           setStatus({ loading: false, error: data.error, success: false });
         }
       } catch (error) {
-        setStatus({ loading: false, error: 'Error fetching profile', success: false });
+        setStatus({ loading: false, error: "Error fetching profile", success: false });
       }
     };
     fetchProfile();
@@ -66,17 +66,17 @@ const Profile = () => {
     e.preventDefault();
     setStatus({ loading: true, error: null, success: false });
     try {
-      const res = await fetch('http://localhost:3001/profile', {
-        method: 'PUT',
+      const res = await fetch("http://localhost:3001/profile", {
+        method: "PUT",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': localStorage.getItem('token')
+          "Content-Type": "application/json",
+          Authorization: localStorage.getItem("token")
         },
         body: JSON.stringify(formData)
       });
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || 'Failed to update profile');
+        throw new Error(data.error || "Failed to update profile");
       }
       setStatus({ loading: false, error: null, success: true });
     } catch (error) {
@@ -169,41 +169,33 @@ const Profile = () => {
                 onChange={handleChange}
                 className="p-3 bg-gray-700 text-white rounded-lg border-2 border-gray-600 focus:outline-none focus:border-purple-600"
               />
-              <select
+              {/* Changed Race and Gender to text inputs */}
+              <input
+                type="text"
                 name="race"
+                placeholder="Race"
                 value={formData.race}
                 onChange={handleChange}
                 className="p-3 bg-gray-700 text-white rounded-lg border-2 border-gray-600 focus:outline-none focus:border-purple-600"
-              >
-                <option value="">Select Race</option>
-                <option value="asian">Asian</option>
-                <option value="black">Black/African American</option>
-                <option value="hispanic">Hispanic/Latino</option>
-                <option value="white">White</option>
-                <option value="other">Other</option>
-              </select>
-              <select
+              />
+              <input
+                type="text"
                 name="gender"
+                placeholder="Gender"
                 value={formData.gender}
                 onChange={handleChange}
                 className="p-3 bg-gray-700 text-white rounded-lg border-2 border-gray-600 focus:outline-none focus:border-purple-600"
-              >
-                <option value="">Select Gender</option>
-                <option value="male">Male</option>
-                <option value="female">Female</option>
-                <option value="other">Other</option>
-                <option value="prefer-not">Prefer not to say</option>
-              </select>
+              />
             </div>
 
             <button
               type="submit"
               disabled={status.loading}
               className={`mt-8 w-full bg-purple-600 text-white py-3 rounded-lg font-semibold ${
-                status.loading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-purple-700'
+                status.loading ? "opacity-50 cursor-not-allowed" : "hover:bg-purple-700"
               }`}
             >
-              {status.loading ? 'Saving...' : 'Save Changes'}
+              {status.loading ? "Saving..." : "Save Changes"}
             </button>
           </form>
         </div>
