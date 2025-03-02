@@ -8,54 +8,62 @@ import mongoose from 'mongoose';
 import jwt from 'jsonwebtoken';
 import multer from 'multer';
 import User from './models/User.js';
+import { getScholarships } from './scholarship.js';
 
-
-// Set up Express
 const app = express();
 app.use(express.json());
 app.use(cors());
 
-// Configure multer for file uploads
+// Configure multer for file uploads (if needed)
 const storage = multer.memoryStorage();
 const upload = multer({
   storage: storage,
-  limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
+  limits: { fileSize: 5 * 1024 * 1024 }
 });
 
 // Connect to MongoDB
-mongoose.connect(process.env.MONGO_URI, {})
+mongoose
+  .connect(process.env.MONGO_URI, {})
   .then(() => console.log('Connected to MongoDB'))
   .catch((error) => console.error('Error connecting to MongoDB:', error));
 
-// Import the User model (ensure your User model file is in ./models/User.js)
-
-// User Registration Route
+/* ================================
+   USER REGISTRATION
+================================ */
 app.post('/register', async (req, res) => {
-  console.log("Received registration request:", req.body);
+  console.log("Registration request:", req.body);
   try {
     const { email, password } = req.body;
     const existingUser = await User.findOne({ email });
     if (existingUser) return res.status(400).json({ error: 'Email already in use' });
+    
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(password, saltRounds);
     const newUser = new User({ email, password: hashedPassword });
     await newUser.save();
-    res.status(201).json({ message: 'User registered successfully' });
+    
+    // Immediately generate a token for the new user
+    const token = jwt.sign({ userId: newUser._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    res.status(201).json({ message: 'User registered successfully', token });
   } catch (error) {
     console.error('Registration error:', error);
     res.status(500).json({ error: 'Failed to register user' });
   }
 });
 
-// User Login Route
+/* ================================
+   USER LOGIN
+================================ */
 app.post('/login', async (req, res) => {
-  console.log("Attempt:", req.body);
+  console.log("Login request:", req.body);
   try {
     const { email, password } = req.body;
     const user = await User.findOne({ email });
     if (!user) return res.status(400).json({ error: 'Invalid email or password' });
+    
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ error: 'Invalid email or password' });
+    
     const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
     res.json({ message: 'Login successful', token });
   } catch (error) {
@@ -64,17 +72,17 @@ app.post('/login', async (req, res) => {
   }
 });
 
-// JWT Middleware for Protected Routes
+/* ================================
+   AUTH MIDDLEWARE
+================================ */
 const authMiddleware = (req, res, next) => {
   const token = req.header('Authorization');
   if (!token) {
-    console.log('No token provided');
-    return res.status(401).json({ error: 'Access denied' });
+    return res.status(401).json({ error: 'Access denied, no token provided' });
   }
   try {
     const verified = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = verified;
-    console.log('Token verified for user:', verified.userId);
+    req.user = verified; // { userId: ... }
     next();
   } catch (error) {
     console.error('Token verification failed:', error);
@@ -82,97 +90,103 @@ const authMiddleware = (req, res, next) => {
   }
 };
 
-// Protected Profile Route
+/* ================================
+   GET USER PROFILE
+================================ */
 app.get('/profile', authMiddleware, async (req, res) => {
-  const user = await User.findById(req.user.userId).select('-password');
-  res.json(user);
-});
-
-// Update Profile Route
-app.put('/profile', authMiddleware, async (req, res) => {
   try {
-    const userId = req.user.userId;
-    console.log('Updating profile for user:', userId);
-    const updateData = {
-      firstName: req.body.firstName,
-      lastName: req.body.lastName,
-      state: req.body.state,
-      university: req.body.university,
-      major: req.body.major,
-      gpa: req.body.gpa,
-      religion: req.body.religion,
-      hobbies: req.body.hobbies,
-      race: req.body.race,
-      gender: req.body.gender
-    };
-    const user = await User.findByIdAndUpdate(userId, { $set: updateData }, { new: true }).select('-password');
-    if (!user) {
-      console.log('User not found:', userId);
-      return res.status(404).json({ message: 'User not found' });
-    }
-    res.json({
-      message: 'Profile updated successfully',
-      user: {
-        id: user._id,
-        email: user.email,
-        firstName: user.firstName || '',
-        lastName: user.lastName || '',
-        state: user.state || '',
-        university: user.university || '',
-        major: user.major || '',
-        gpa: user.gpa || '',
-        religion: user.religion || '',
-        hobbies: user.hobbies || '',
-        race: user.race || '',
-        gender: user.gender || ''
-      }
-    });
+    const user = await User.findById(req.user.userId).select('-password');
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json(user);
   } catch (error) {
-    console.error('Profile update error:', error);
-    res.status(500).json({ message: 'Error updating profile' });
+    console.error('Profile fetch error:', error);
+    res.status(500).json({ error: 'Failed to fetch profile' });
   }
 });
 
-// Test Route
+/* ================================
+   UPDATE USER PROFILE
+================================ */
+app.put('/profile', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    console.log("Profile update request body:", req.body);
+    const {
+      firstName,
+      lastName,
+      state,
+      university,
+      major,
+      gpa,
+      religion,
+      hobbies,
+      race,
+      gender
+    } = req.body;
+
+    const updateData = {};
+    if (firstName !== undefined) updateData.firstName = firstName;
+    if (lastName !== undefined) updateData.lastName = lastName;
+    if (state !== undefined) updateData.state = state;
+    if (university !== undefined) updateData.university = university;
+    if (major !== undefined) updateData.major = major;
+    if (gpa !== undefined) updateData.gpa = gpa;
+    if (religion !== undefined) updateData.religion = religion;
+    if (hobbies !== undefined) updateData.hobbies = hobbies;
+    if (race !== undefined) updateData.race = race;
+    if (gender !== undefined) updateData.gender = gender;
+    
+    console.log("Update data:", updateData);
+    
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { $set: updateData },
+      { new: true }
+    ).select('-password');
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    res.json({ message: 'Profile updated successfully', user });
+  } catch (error) {
+    console.error('Profile update error:', error);
+    res.status(500).json({ error: 'Error updating profile' });
+  }
+});
+
+/* ================================
+   SCHOLARSHIP ENDPOINT
+   (Uses the saved profile fields to query ChatGPT)
+================================ */
+app.get('/api/scholarships', authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    if (!user.race || !user.gender || !user.university) {
+      return res.status(400).json({
+        error: 'Please update your profile with race, gender, and university first.'
+      });
+    }
+
+    const data = await getScholarships(user.university, user.race, user.gender);
+    res.json(data); // { scholarships: [...] }
+  } catch (error) {
+    console.error('Failed to fetch scholarship data:', error);
+    res.status(500).json({ error: 'Failed to fetch scholarship data.' });
+  }
+});
+
+/* ================================
+   TEST ROUTE
+================================ */
 app.get('/', (req, res) => {
   res.send('Server is running!');
 });
 
-// Import the scholarship search function
-import { getScholarships } from './scholarship.js';
-
-// Scholarship Endpoint: returns scholarships
-app.get('/api/scholarships', async (req, res) => {
-  try {
-    console.log('Fetching scholarships data...');
-    const data = await getScholarships();
-    
-    if (!data || !data.overlapping) {
-      console.error('Invalid scholarship data returned:', data);
-      return res.status(500).json({ 
-        error: 'Invalid scholarship data structure', 
-        overlapping: [] 
-      });
-    }
-    
-    // Return all available overlapping scholarships instead of limiting to 3
-    const overlapping = Array.isArray(data.overlapping) 
-      ? data.overlapping 
-      : [];
-    
-    console.log(`Returning ${overlapping.length} scholarships`);
-    res.json({ overlapping });
-  } catch (error) {
-    console.error('Failed to fetch scholarship data:', error);
-    res.status(500).json({ 
-      error: 'Failed to fetch scholarship data.', 
-      message: error.message,
-      overlapping: [] 
-    });
-  }
-});
-
-// Start the Server
+/* ================================
+   START THE SERVER
+================================ */
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
