@@ -8,21 +8,45 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// Function to generate a prompt based on user profile
-function generatePrompt(user) {
-  // Default values for missing user data
-  const race = user?.race || 'Not specified';
-  const gender = user?.gender || 'Not specified';
-  const state = user?.state || 'Not specified';
-  const major = user?.major || 'Not specified';
-  const religion = user?.religion || 'Not specified';
-  const hobbies = user?.hobbies || 'Not specified';
-  const gpa = user?.gpa || 'Not specified';
-  const university = user?.university || 'Not specified';
+// Function to generate prompt based on user profile
+function generatePrompt(profile) {
+  const {
+    ethnicity = '',
+    gender = '',
+    location = '',
+    major = '',
+    religion = '',
+    hobbies = [],
+    otherAttributes = {}
+  } = profile;
+
+  // Build demographic description from profile data
+  let demographicDescription = '';
+  if (ethnicity) demographicDescription += `${ethnicity}, `;
+  if (gender) demographicDescription += `${gender}, `;
+  if (location) demographicDescription += `from ${location}, `;
+  if (major) demographicDescription += `a ${major} major, `;
+  if (religion) demographicDescription += `${religion}, `;
+  
+  // Add hobbies if available
+  if (hobbies && hobbies.length > 0) {
+    const hobbiesText = hobbies.length === 1 
+      ? `plays ${hobbies[0]} for fun`
+      : `enjoys ${hobbies.join(' and ')} for fun`;
+    demographicDescription += hobbiesText;
+  }
+  
+  // Add any other attributes
+  const otherAttributesArray = Object.entries(otherAttributes)
+    .map(([key, value]) => `${key}: ${value}`);
+  
+  if (otherAttributesArray.length > 0) {
+    demographicDescription += `, with ${otherAttributesArray.join(', ')}`;
+  }
 
   return `
 I'm building a website to find scholarship opportunities for college students with deadlines in 2025.
-For a user who is ${race}, ${gender}, from ${state}, a ${major} major, ${religion}, with a GPA of ${gpa}, attending ${university}, and enjoys ${hobbies} for fun,
+For a user who is ${demographicDescription},
 find me 5 primary scholarship opportunities. For each, provide the scholarship number, title, due date, award amount, eligibility,
 a URL of the scholarship page (which may not be the direct application link), GPA requirement, and the associated university.
 Order the primary scholarships by scholarship number in ascending order.
@@ -33,20 +57,6 @@ Each should be an array of objects with the following keys: 'number', 'title', '
 If an exact direct link is not known, use the general scholarship page URL.
 `;
 }
-
-// Default prompt for when no user data is available
-const defaultPrompt = `
-I'm building a website to find scholarship opportunities for college students with deadlines in 2025.
-For a sample user who is black, female, from California, a computer science major, muslim, and plays chess for fun,
-find me 5 primary scholarship opportunities. For each, provide the scholarship number, title, due date, award amount, eligibility,
-a URL of the scholarship page (which may not be the direct application link), GPA requirement, and the associated university.
-Order the primary scholarships by scholarship number in ascending order.
-Additionally, create another section for scholarships that apply to overlapping categories (e.g., multiple eligibility criteria).
-Output the result as JSON in a code block (using triple backticks and starting with 'json') with two keys: 'primary' and 'overlapping'.
-Each should be an array of objects with the following keys: 'number', 'title', 'due_date', 'award_amount', 'eligibility',
-'apply_link', 'gpa', and 'university'.
-If an exact direct link is not known, use the general scholarship page URL.
-`;
 
 function extractJSON(text) {
   const regex = /```json([\s\S]*?)```/;
@@ -60,9 +70,25 @@ async function getDirectApplyLink(pageUrl) {
   if (!pageUrl || pageUrl === 'N/A') return 'N/A';
   let browser;
   try {
-    browser = await puppeteer.launch();
+    // First try a more compatible launch configuration
+    browser = await puppeteer.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      ignoreDefaultArgs: ['--disable-extensions'],
+    }).catch(async (err) => {
+      console.warn(`Initial puppeteer launch failed: ${err.message}. Trying with executablePath...`);
+      
+      // Try to use system Chrome as fallback
+      return puppeteer.launch({
+        headless: true,
+        executablePath: process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+        args: ['--no-sandbox', '--disable-setuid-sandbox'],
+        ignoreDefaultArgs: ['--disable-extensions'],
+      });
+    });
+    
     const page = await browser.newPage();
-    await page.goto(pageUrl, { waitUntil: 'networkidle2' });
+    await page.goto(pageUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
     const link = await page.evaluate(() => {
       const candidates = Array.from(document.querySelectorAll('a, button'));
       const candidate = candidates.find(el => {
@@ -80,7 +106,8 @@ async function getDirectApplyLink(pageUrl) {
     return link || 'N/A';
   } catch (error) {
     console.error(`Error scraping ${pageUrl}: ${error.message}`);
-    return 'N/A';
+    // If puppeteer fails, just return the original URL
+    return pageUrl; 
   } finally {
     if (browser) await browser.close();
   }
@@ -88,11 +115,30 @@ async function getDirectApplyLink(pageUrl) {
 
 async function updateApplyLink(scholarship) {
   if (!scholarship.apply_link || scholarship.apply_link === 'N/A') return 'N/A';
-  const scrapedLink = await getDirectApplyLink(scholarship.apply_link);
-  // If the scraped link is generic or not improved, fallback to the original
-  if (!scrapedLink || scrapedLink === 'N/A' || scrapedLink.includes('example.com') || scrapedLink === scholarship.apply_link)
+  
+  try {
+    // Skip scraping for problematic sites - add more as needed
+    const skipDomains = ['collegeart.org', 'example.com'];
+    const url = new URL(scholarship.apply_link);
+    
+    if (skipDomains.some(domain => url.hostname.includes(domain))) {
+      console.log(`Skipping scraping for known problematic domain: ${url.hostname}`);
+      return scholarship.apply_link;
+    }
+    
+    // Try to scrape the apply link
+    const scrapedLink = await getDirectApplyLink(scholarship.apply_link);
+    
+    // If the scraped link is generic or not improved, fallback to the original
+    if (!scrapedLink || scrapedLink === 'N/A' || scrapedLink.includes('example.com') || scrapedLink === scholarship.apply_link) {
+      return scholarship.apply_link;
+    }
+    
+    return scrapedLink;
+  } catch (error) {
+    console.error(`Error updating apply link for ${scholarship.title}: ${error.message}`);
     return scholarship.apply_link;
-  return scrapedLink;
+  }
 }
 
 // Fallback scholarship data if API fails
@@ -139,15 +185,43 @@ const fallbackScholarships = {
       apply_link: "https://islamicscholarshipfund.org/",
       gpa: "3.2",
       university: "Any accredited university"
+    },
+    {
+      number: 104,
+      title: "Society of Women Engineers Scholarship",
+      due_date: "February 15, 2025",
+      award_amount: "$8,000",
+      eligibility: "Female students pursuing engineering",
+      apply_link: "https://swe.org/scholarships/",
+      gpa: "3.0",
+      university: "Any accredited university"
+    },
+    {
+      number: 105,
+      title: "SHPE Foundation Scholarship",
+      due_date: "May 1, 2025",
+      award_amount: "$3,000",
+      eligibility: "Hispanic students in STEM",
+      apply_link: "https://www.shpe.org/students/scholarshpe",
+      gpa: "3.0",
+      university: "Any accredited university"
+    },
+    {
+      number: 106,
+      title: "California Chess Federation Scholarship",
+      due_date: "March 30, 2025",
+      award_amount: "$2,500",
+      eligibility: "Active chess players with competitive history",
+      apply_link: "https://www.calchess.org/",
+      gpa: "3.0",
+      university: "California universities"
     }
   ]
 };
 
-export async function getScholarships(user = null) {
+export async function getScholarships(profile = {}) {
   try {
-    // Use the user's profile data to generate a personalized prompt if available
-    const prompt = user ? generatePrompt(user) : defaultPrompt;
-    console.log('Using prompt based on user profile:', user ? 'Yes' : 'No');
+    const prompt = generatePrompt(profile);
     
     const response = await openai.chat.completions.create({
       model: 'gpt-3.5-turbo',
@@ -155,7 +229,6 @@ export async function getScholarships(user = null) {
       max_tokens: 2000,
       temperature: 0.7,
     });
-    
     const resultText = response.choices[0].message.content;
     const jsonString = extractJSON(resultText);
     let data;

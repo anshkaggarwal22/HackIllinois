@@ -21,43 +21,6 @@ const Profile = () => {
     success: false
   });
 
-  // Fetch existing profile data on component mount
-  useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        if (!token) return;
-        
-        const response = await fetch('http://localhost:3001/profile', {
-          headers: {
-            'Authorization': token
-          }
-        });
-        
-        if (!response.ok) throw new Error('Failed to fetch profile');
-        
-        const profileData = await response.json();
-        // Update form with existing data
-        setFormData({
-          firstName: profileData.firstName || "",
-          lastName: profileData.lastName || "",
-          state: profileData.state || "",
-          university: profileData.university || "",
-          major: profileData.major || "",
-          gpa: profileData.gpa || "",
-          religion: profileData.religion || "",
-          hobbies: profileData.hobbies || "",
-          race: profileData.race || "",
-          gender: profileData.gender || ""
-        });
-      } catch (error) {
-        console.error("Error fetching profile:", error);
-      }
-    };
-    
-    fetchProfile();
-  }, []);
-
   // Mock application stats (replace with real data from backend later)
   const applicationStats = {
     total: 15,
@@ -107,16 +70,6 @@ const Profile = () => {
       <Navbar />
       <div className="max-w-4xl mx-auto px-4 py-8">
         <h1 className="text-3xl font-bold text-white mb-8">Profile Information</h1>
-        
-        {/* Profile Personalization Banner */}
-        <div className="bg-purple-900/30 border border-purple-500 rounded-lg p-4 mb-8">
-          <h2 className="text-xl font-semibold text-white mb-2">Personalize Your Scholarship Recommendations</h2>
-          <p className="text-purple-200">
-            The more complete your profile is, the better we can match you with scholarships that 
-            fit your background, interests, and qualifications. Update your information below to 
-            see personalized recommendations on your dashboard.
-          </p>
-        </div>
 
         {/* Application Statistics Section */}
         <div className="bg-gray-800 rounded-lg p-6 mb-8">
@@ -157,7 +110,7 @@ const Profile = () => {
         
         {status.success && (
           <div className="bg-green-500 text-white p-4 rounded-lg mb-6">
-            Profile updated successfully! Your scholarship recommendations will now be more personalized.
+            Profile updated successfully!
           </div>
         )}
 

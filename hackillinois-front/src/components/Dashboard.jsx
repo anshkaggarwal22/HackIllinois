@@ -9,13 +9,6 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [user, setUser] = useState(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-
-  // Check authentication status
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    setIsAuthenticated(!!token);
-  }, []);
 
   // Fetch user profile
   useEffect(() => {
@@ -39,16 +32,10 @@ const Dashboard = () => {
       });
   }, []);
 
-  // Fetch scholarships - either personalized or default based on auth state
+  // Fetch scholarships
   useEffect(() => {
     setLoading(true);
-    
-    const token = localStorage.getItem('token');
-    const endpoint = token ? "/api/scholarships" : "/api/default-scholarships";
-    
-    fetch(`http://localhost:3001${endpoint}`, {
-      headers: token ? { Authorization: token } : {}
-    })
+    fetch("http://localhost:3001/api/scholarships")
       .then((res) => {
         if (!res.ok) throw new Error('Failed to fetch scholarships');
         return res.json();
@@ -67,7 +54,7 @@ const Dashboard = () => {
         setError(err.message || "Failed to fetch scholarships");
         setLoading(false);
       });
-  }, [isAuthenticated]);
+  }, []);
 
   const filteredScholarships = scholarships.filter((scholarship) => {
     const matchesSearch = scholarship.title.toLowerCase().includes(searchTerm.toLowerCase());
@@ -89,15 +76,6 @@ const Dashboard = () => {
               <p>Welcome, {user.firstName || 'User'} {user.lastName || ''}!</p>
               <p className="text-sm text-gray-400 mt-1">
                 We're finding scholarships that match your profile
-              </p>
-            </div>
-          )}
-          
-          {!isAuthenticated && (
-            <div className="bg-gray-800 p-4 rounded-lg border border-yellow-600 text-white">
-              <h2 className="font-semibold text-lg mb-2">Not Personalized</h2>
-              <p className="text-sm text-yellow-400">
-                Log in to see scholarships matched to your profile
               </p>
             </div>
           )}
