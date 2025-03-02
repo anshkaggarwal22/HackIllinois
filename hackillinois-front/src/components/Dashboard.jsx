@@ -1,31 +1,35 @@
-// Dashboard.jsx
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import Navbar from "./Navbar";
 
 const Dashboard = () => {
   const [scholarships, setScholarships] = useState([]);
+  const [savedScholarships, setSavedScholarships] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [incompleteProfile, setIncompleteProfile] = useState(false);
 
   const token = localStorage.getItem("token");
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (!token) {
       setError("Please log in to view scholarships.");
       return;
     }
+
     const fetchScholarships = async () => {
       setLoading(true);
       try {
         const res = await fetch("http://localhost:3001/api/scholarships", {
-          headers: { Authorization: token }
+          headers: { Authorization: token },
         });
         const data = await res.json();
+
+        // If user profile is incomplete, redirect them to the profile page
         if (data.incompleteProfile) {
-          setIncompleteProfile(true);
-          setError(data.message);
+          navigate("/profile");
+          return;
         } else if (res.ok) {
           setScholarships(data.scholarships || []);
         } else {
@@ -38,8 +42,60 @@ const Dashboard = () => {
         setLoading(false);
       }
     };
+
+    const fetchSavedScholarships = async () => {
+      try {
+        const res = await fetch("http://localhost:3001/api/savedScholarships", {
+          headers: { Authorization: token },
+        });
+        const data = await res.json();
+        if (res.ok) {
+          setSavedScholarships(data.savedScholarships);
+        }
+      } catch (err) {
+        console.error("Error fetching saved scholarships:", err);
+      }
+    };
+
     fetchScholarships();
-  }, [token]);
+    fetchSavedScholarships();
+  }, [token, navigate]);
+
+  const handleSaveScholarship = async (scholarship) => {
+    if (
+      savedScholarships.find(
+        (s) => s.apply_link === scholarship.apply_link && s.title === scholarship.title
+      )
+    ) {
+      alert("Scholarship already saved!");
+      return;
+    }
+    try {
+      const res = await fetch("http://localhost:3001/api/savedScholarships", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: token,
+        },
+        body: JSON.stringify({
+          title: scholarship.title,
+          award_amount: scholarship.award_amount,
+          due_date: scholarship.due_date,
+          university: scholarship.university,
+          apply_link: scholarship.apply_link,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSavedScholarships((prev) => [...prev, data.savedScholarship]);
+        alert("Scholarship saved to tracker!");
+      } else {
+        alert(data.error || "Failed to save scholarship");
+      }
+    } catch (err) {
+      alert("Failed to save scholarship");
+    }
+  };
 
   if (loading) {
     return (
@@ -57,7 +113,6 @@ const Dashboard = () => {
     );
   }
 
-  // Filter scholarships by title
   const filteredScholarships = scholarships.filter((sch) =>
     sch.title.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -77,28 +132,48 @@ const Dashboard = () => {
           />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredScholarships.map((sch, idx) => (
-            <div
-              key={`${sch.number}-${idx}`}
-              className="bg-gray-800 rounded-lg p-6 shadow-lg border-2 border-gray-700 hover:border-purple-600 transition-all"
-            >
-              <h3 className="text-xl font-semibold text-white mb-2">{sch.title}</h3>
-              <div className="text-gray-300 space-y-2">
-                <p>Amount: {sch.award_amount}</p>
-                <p>Deadline: {sch.due_date}</p>
-                <p>GPA Requirement: {sch.gpa}</p>
-                <p>University: {sch.university}</p>
+          {filteredScholarships.map((sch, idx) => {
+            const isSaved = savedScholarships.find(
+              (s) => s.apply_link === sch.apply_link && s.title === sch.title
+            );
+            return (
+              <div
+                key={`${sch.title}-${idx}`}
+                className="bg-gray-800 rounded-lg p-6 shadow-lg border-2 border-gray-700 hover:border-purple-600 transition-all"
+              >
+                <h3 className="text-xl font-semibold text-white mb-2">{sch.title}</h3>
+                <div className="text-gray-300 space-y-2">
+                  <p>Amount: {sch.award_amount}</p>
+                  <p>Deadline: {sch.due_date}</p>
+                  <p>GPA Requirement: {sch.gpa}</p>
+                  <p>University: {sch.university}</p>
+                </div>
+                <div className="mt-4 flex justify-between items-center">
+                  <button
+                    onClick={() => window.open(sch.apply_link, "_blank")}
+                    className="bg-purple-600 px-4 py-2 rounded-lg hover:bg-purple-700 text-white"
+                  >
+                    Apply Now
+                  </button>
+                  {isSaved ? (
+                    <button
+                      disabled
+                      className="bg-gray-600 px-4 py-2 rounded-lg text-white cursor-not-allowed"
+                    >
+                      Saved
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handleSaveScholarship(sch)}
+                      className="bg-green-600 px-4 py-2 rounded-lg hover:bg-green-700 text-white"
+                    >
+                      Save
+                    </button>
+                  )}
+                </div>
               </div>
-              <div className="mt-4 flex justify-between items-center">
-                <button
-                  onClick={() => window.open(sch.apply_link, "_blank")}
-                  className="bg-purple-600 px-4 py-2 rounded-lg hover:bg-purple-700 text-white"
-                >
-                  Apply Now
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>

@@ -16,14 +16,19 @@ const SignupPage = () => {
         },
         body: JSON.stringify({ email, password }),
       });
-  
+
       if (!response.ok) {
         throw new Error("Signup failed");
       }
-  
+
       const data = await response.json();
       console.log("Signup successful:", data);
-      navigate("/profile"); // Redirect to profile after signup 
+
+      // Automatically log the user in by storing the token
+      localStorage.setItem("token", data.token);
+
+      // Redirect to the profile page
+      navigate("/profile");
     } catch (error) {
       console.error("Error during signup:", error);
       // Optionally, display an error message to the user here
@@ -71,7 +76,10 @@ const SignupPage = () => {
           </div>
         </form>
         <p className="text-gray-400 text-center mt-10 px-8">
-          Already have an account? <a href="/login" className="text-purple-400 hover:underline">Login</a>
+          Already have an account?{" "}
+          <a href="/login" className="text-purple-400 hover:underline">
+            Login
+          </a>
         </p>
       </div>
     </div>
